@@ -3,7 +3,6 @@ import chat.shared.Message;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
-import java.io.IOException;
 
 public class RoomListFrame extends JFrame {
 
@@ -147,6 +146,8 @@ public class RoomListFrame extends JFrame {
         try {
             ChatFrame chat = new ChatFrame(client, selected, this);
             chat.setVisible(true);
+            // 방 목록 숨기기
+            this.setVisible(false);
 
             client.send(Message.joinRoom(selected));
 

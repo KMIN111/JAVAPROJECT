@@ -5,10 +5,7 @@ import chat.shared.Message;
 import java.util.HashSet;
 import java.util.Set;
 
-/**
- * 채팅방 단위 오목 게임 상태를 관리한다.
- * 서버가 룰을 판정하고 상태 스냅샷을 브로드캐스트한다.
- */
+
 public class OmokGame {
 
     public static final int BOARD_SIZE = 15;
@@ -17,19 +14,20 @@ public class OmokGame {
 
     private final int[][] board = new int[BOARD_SIZE][BOARD_SIZE]; // 0: 빈칸, 1: 흑, 2: 백
 
-    private String blackPlayer;
-    private String whitePlayer;
+    private String blackPlayer; // 흑 플레이어 닉네임
+    private String whitePlayer; // 백 플레이어 닉네임
     private String currentTurn; // 닉네임 기준
-    private boolean finished;
-    private String winner;
-    private String resultReason;
+    private boolean finished; // 게임 종료 여부
+    private String winner; // 게임 승자
+    private String resultReason; // 게임 결과 (승리, 무승부, 기권)
 
-    private final Set<String> spectators = new HashSet<>();
+    private final Set<String> spectators = new HashSet<>(); // 게임 관전자 목록
 
     public OmokGame(ChatRoom room) {
         this.room = room;
     }
 
+    //한 번에 한 스레드만 들어올 수 있게 잠금
     public synchronized void joinAsPlayer(String nickname) {
         if (finished) reset();
 
@@ -43,11 +41,11 @@ public class OmokGame {
             blackPlayer = nickname;
         } else if (whitePlayer == null) {
             whitePlayer = nickname;
-        } else {
+        } else {// 게임 미시작, 종료 상태 및 2명이 게임에 참여중일 때 수를 두지 못하게 예외 처리
             throw new IllegalStateException("이미 두 플레이어가 참여 중입니다.");
         }
 
-        spectators.remove(nickname);
+        spectators.remove(nickname); //관전자 목록에 있으면 제거
 
         // 두 명이 모두 채워지면 게임 시작
         if (blackPlayer != null && whitePlayer != null && currentTurn == null) {
@@ -58,23 +56,12 @@ public class OmokGame {
         }
     }
 
-    public synchronized boolean joinAsSpectator(String nickname) {
-        if (nickname.equals(blackPlayer) || nickname.equals(whitePlayer)) {
-            return false;
-        }
-        return spectators.add(nickname);
-    }
-
-    /**
-     * 자동으로 플레이어/관전자 결정하여 참여
-     * @return "PLAYER" 또는 "SPECTATOR"
-     */
-    public synchronized String tryJoin(String nickname) {
+    // 자동 플레이어/관전자 결정 메서드
+    public synchronized void tryJoin(String nickname) {
         if (finished) reset();
 
         // 이미 플레이어인 경우
         if (nickname.equals(blackPlayer) || nickname.equals(whitePlayer)) {
-            return "PLAYER";
         }
 
         // 빈 슬롯이 있으면 플레이어로
@@ -84,7 +71,6 @@ public class OmokGame {
             if (whitePlayer != null && currentTurn == null) {
                 currentTurn = blackPlayer;
             }
-            return "PLAYER";
         }
         if (whitePlayer == null) {
             whitePlayer = nickname;
@@ -92,14 +78,13 @@ public class OmokGame {
             if (blackPlayer != null && currentTurn == null) {
                 currentTurn = blackPlayer;
             }
-            return "PLAYER";
         }
 
-        // 슬롯이 다 찼으면 관전자로
+        // 슬롯이 다 찼으면 관전자로 (자동 관전)
         spectators.add(nickname);
-        return "SPECTATOR";
     }
 
+    // 게임 기권 메서드
     public synchronized void resign(String nickname) {
         if (finished) return;
         if (!nickname.equals(blackPlayer) && !nickname.equals(whitePlayer)) {
@@ -107,9 +92,38 @@ public class OmokGame {
         }
         finished = true;
         winner = nickname.equals(blackPlayer) ? whitePlayer : blackPlayer;
+        //승리이유 기권
         resultReason = "RESIGN";
     }
 
+    // 게임만 나가기 (방 유지) - 나간 사용자만 제거
+    public synchronized void leaveGame(String nickname) {
+        boolean isBlack = nickname.equals(blackPlayer);
+        boolean isWhite = nickname.equals(whitePlayer);
+
+        if (isBlack || isWhite) {
+            if (isBlack) blackPlayer = null;
+            if (isWhite) whitePlayer = null;
+
+            clearBoard();
+            finished = false;
+            winner = null;
+            resultReason = null;
+            currentTurn = null;
+        }
+        spectators.remove(nickname); //관전자 목록에 있으면 제거
+    }
+    
+    // 오목판 초기화
+    private void clearBoard() {
+        for (int i = 0; i < BOARD_SIZE; i++) {
+            for (int j = 0; j < BOARD_SIZE; j++) {
+                board[i][j] = 0;
+            }
+        }
+    }
+
+    // 오목판 수 두기
     public synchronized void placeStone(String nickname, int x, int y) {
         validateInRange(x, y);
         if (finished) {
@@ -118,7 +132,7 @@ public class OmokGame {
         if (!nickname.equals(currentTurn)) {
             throw new IllegalStateException("지금은 " + currentTurn + "의 차례입니다.");
         }
-
+        // 흑이면 1 백이면 2
         int stone = nickname.equals(blackPlayer) ? 1 : (nickname.equals(whitePlayer) ? 2 : 0);
         if (stone == 0) {
             throw new IllegalStateException("플레이어가 아닌 사용자는 수를 둘 수 없습니다.");
@@ -144,6 +158,7 @@ public class OmokGame {
         }
     }
 
+    // 브로드 캐스트 시 복사본 전달 (서버 내부 보호)
     public synchronized Message toStateMessage() {
         // 보드 복사본 제공
         int[][] snapshot = new int[BOARD_SIZE][BOARD_SIZE];
@@ -194,6 +209,7 @@ public class OmokGame {
         }
     }
 
+    // 오목판 돌이 전부 차있는지 확인하는 메소드드
     private boolean isBoardFull() {
         for (int i = 0; i < BOARD_SIZE; i++) {
             for (int j = 0; j < BOARD_SIZE; j++) {
@@ -215,6 +231,7 @@ public class OmokGame {
         return false;
     }
 
+    // 오목판 돌이 연속 5개 있는지 확인하는 메소드
     private int countDir(int x, int y, int dx, int dy, int stone) {
         int cnt = 0;
         int cx = x + dx;
@@ -227,6 +244,7 @@ public class OmokGame {
         return cnt;
     }
 
+    // 게임 상태 초기화
     private void reset() {
         for (int i = 0; i < BOARD_SIZE; i++) {
             for (int j = 0; j < BOARD_SIZE; j++) {

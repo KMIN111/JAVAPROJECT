@@ -72,6 +72,11 @@ public class OmokWindow extends JFrame {
         bottom.add(bottomButtons, BorderLayout.EAST);
 
         exitButton.addActionListener(e -> {
+            try {
+                client.send(Message.gameLeave(roomName));
+            } catch (Exception ex) {
+                // 무시하고 창만 닫음
+            }
             dispose();
             if (this.onExit != null) this.onExit.run();
         });

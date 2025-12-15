@@ -25,7 +25,9 @@ public class ChatFrame extends JFrame {
     // 게임 UI
     private JButton gameButton;
     private OmokWindow omokWindow;
+    private WordGameWindow wordWindow;
     private boolean requestedOmokWindow = false; // 내가 직접 참여/관전 버튼을 눌렀는지
+    private boolean requestedWordWindow = false;
     private boolean active = true; // 창이 닫힌 뒤에는 게임 메시지 무시
 
     public ChatFrame(ChatClient client, String roomName, RoomListFrame parentList) {
@@ -214,10 +216,17 @@ public class ChatFrame extends JFrame {
         SwingUtilities.invokeLater(() -> {
             if (!active) return; // 이미 닫힌 창이면 무시
             if (m.getGameAction() == Message.GameAction.ERROR) {
-                appendSystem("[오목] " + m.getText());
+                appendSystem("[게임] " + m.getText());
                 return;
             }
-            // STATE 메시지를 기준으로 UI 갱신
+
+            Message.GameType type = m.getGameType() == null ? Message.GameType.OMOK : m.getGameType();
+            if (type == Message.GameType.WORD) {
+                handleWordState(m);
+                return;
+            }
+
+            // OMOK STATE
             if (m.getGameAction() == Message.GameAction.STATE) {
                 boolean iAmPlayer = client.getNickname().equals(m.getBlackPlayer()) || client.getNickname().equals(m.getWhitePlayer());
                 boolean shouldOpen = iAmPlayer || requestedOmokWindow;
@@ -229,10 +238,23 @@ public class ChatFrame extends JFrame {
                 omokWindow.applyState(m);
                 if (!omokWindow.isVisible()) {
                     omokWindow.setVisible(true);
-                    // 채팅창도 계속 보이게 유지
+                    // 게임 창이 열리면 채팅창 숨김
+                    ChatFrame.this.setVisible(false);
                 }
             }
         });
+    }
+
+    private void handleWordState(Message m) {
+        boolean iAmPlayer = m.getPlayers() != null && m.getPlayers().contains(client.getNickname());
+        boolean shouldOpen = iAmPlayer || requestedWordWindow;
+        if (!shouldOpen) return;
+        ensureWordWindow();
+        wordWindow.applyState(m);
+        if (!wordWindow.isVisible()) {
+            wordWindow.setVisible(true);
+            ChatFrame.this.setVisible(false);
+        }
     }
 
     private void ensureOmokWindow() {
@@ -242,9 +264,22 @@ public class ChatFrame extends JFrame {
         }
     }
 
+    private void ensureWordWindow() {
+        if (wordWindow == null) {
+            wordWindow = new WordGameWindow(client, roomName, client.getNickname(), this::onExitWord);
+        }
+    }
+
     private void onExitOmok() {
         // 다시 버튼을 눌러야 창을 띄우도록 플래그 초기화
         requestedOmokWindow = false;
+        // 게임 종료 후 채팅창 복귀
+        ChatFrame.this.setVisible(true);
+    }
+
+    private void onExitWord() {
+        requestedWordWindow = false;
+        ChatFrame.this.setVisible(true);
     }
 
     private void showGameSelectionDialog() {
@@ -256,7 +291,11 @@ public class ChatFrame extends JFrame {
         if (gameType == null) return;
 
         try {
-            requestedOmokWindow = true;
+            if (gameType == Message.GameType.OMOK) {
+                requestedOmokWindow = true;
+            } else if (gameType == Message.GameType.WORD) {
+                requestedWordWindow = true;
+            }
             client.send(Message.gameJoin(roomName, gameType));
         } catch (Exception e) {
             appendSystem("[게임] 참여 실패: " + e.getMessage());
@@ -331,12 +370,17 @@ public class ChatFrame extends JFrame {
             omokWindow.dispose();
             omokWindow = null;
         }
+        if (wordWindow != null) {
+            wordWindow.dispose();
+            wordWindow = null;
+        }
         try {
             client.send(Message.leaveRoom(roomName, client.getNickname()));
         } catch (Exception e) {
             System.out.println("LEABE ROOM 전송실패" +  e.getMessage());
         }
         requestedOmokWindow = false;
+        requestedWordWindow = false;
         // 목록 화면으로 복귀
         if (parentList != null) {
             parentList.setVisible(true);

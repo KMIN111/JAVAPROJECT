@@ -19,6 +19,8 @@ public class ChatRoom {
 
     // 방 단위 오목 게임 세션
     private OmokGame currentGame;
+    // 방 단위 단어 게임 세션
+    private WordGame wordGame;
 
     public ChatRoom(String roomName) {
         this(roomName,roomName);
@@ -58,7 +60,7 @@ public class ChatRoom {
 
     public void leave(ClientHandler client) {
         if (participants.remove(client)) {
-            // 게임 중이라면 결과 없이 초기화 상태로 전파
+            // 오목
             OmokGame game = getCurrentGame();
             if (game != null) {
                 boolean wasPlayer = game.isPlayer(client.getNickname());
@@ -66,6 +68,11 @@ public class ChatRoom {
                 if (wasPlayer) {
                     broadcast(game.toStateMessage(), false);
                 }
+            }
+            // 단어 맞추기
+            WordGame wg = getCurrentWordGame();
+            if (wg != null) {
+                wg.onUserLeft(client.getNickname());
             }
 
             broadcast(Message.systemForRoom(
@@ -125,5 +132,16 @@ public class ChatRoom {
 
     public synchronized OmokGame getCurrentGame() {
         return currentGame;
+    }
+
+    public synchronized WordGame getOrCreateWordGame() {
+        if (wordGame == null) {
+            wordGame = new WordGame(this);
+        }
+        return wordGame;
+    }
+
+    public synchronized WordGame getCurrentWordGame() {
+        return wordGame;
     }
 }

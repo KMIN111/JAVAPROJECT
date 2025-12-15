@@ -16,6 +16,7 @@ public class GameSelectionDialog extends JDialog {
     // 게임 정보 (이름, 타입, 이미지 경로)
     private static final GameInfo[] GAMES = {
             new GameInfo("오목", Message.GameType.OMOK, null),
+            new GameInfo("단어 맞추기", Message.GameType.WORD, null),
             // 추후 게임 추가 시 여기에 추가
             // new GameInfo("틱택토", Message.GameType.TICTACTOE, null),
     };
@@ -142,6 +143,7 @@ public class GameSelectionDialog extends JDialog {
     private String getGameEmoji(Message.GameType type) {
         return switch (type) {
             case OMOK -> "⚫";
+            case WORD -> "⌨";
             // 추후 게임 추가 시
             // case TICTACTOE -> "❌";
         };

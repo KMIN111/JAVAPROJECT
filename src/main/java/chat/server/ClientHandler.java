@@ -121,6 +121,16 @@ public class ClientHandler extends Thread {
             send(Message.gameError(roomName, "존재하지 않는 방입니다."));
             return;
         }
+        Message.GameType gameType = msg.getGameType() == null ? Message.GameType.OMOK : msg.getGameType();
+        if (gameType == Message.GameType.WORD) {
+            handleWordGame(room, msg);
+            return;
+        }
+        handleOmokGame(room, msg);
+    }
+
+    private void handleOmokGame(ChatRoom room, Message msg) {
+        String roomName = room.getName();
         OmokGame game = room.getOrCreateGame();
 
         try {
@@ -134,11 +144,7 @@ public class ClientHandler extends Thread {
                     game.joinAsPlayer(nickname);
                     room.broadcast(game.toStateMessage(), false);
                 }
-                case REQUEST_SPECTATOR -> {
-                    game.joinAsSpectator(nickname);
-                    // 관전자 추가 → 전체에 최신 상태 브로드캐스트
-                    room.broadcast(game.toStateMessage(), false);
-                }
+               
                 case MOVE -> {
                     game.placeStone(nickname, msg.getX(), msg.getY());
                     room.broadcast(game.toStateMessage(), false);
@@ -147,10 +153,36 @@ public class ClientHandler extends Thread {
                     game.resign(nickname);
                     room.broadcast(game.toStateMessage(), false);
                 }
+                case LEAVE_GAME -> {
+                    game.leaveGame(nickname);
+                    room.broadcast(game.toStateMessage(), false);
+                }
                 default -> send(Message.gameError(roomName, "지원하지 않는 게임 액션입니다."));
             }
         } catch (Exception e) {
             send(Message.gameError(roomName, e.getMessage()));
+        }
+    }
+
+    private void handleWordGame(ChatRoom room, Message msg) {
+        String roomName = room.getName();
+        WordGame game = room.getOrCreateWordGame();
+        try {
+            switch (msg.getGameAction()) {
+                case REQUEST_JOIN, REQUEST_JOIN_PLAYER -> {
+                    game.joinAsPlayer(nickname);
+                }
+                case SUBMIT_WORD -> game.submitWord(nickname, msg.getText());
+                case START_WORD_ROUND -> game.startRound(nickname);
+                case LEAVE_GAME -> game.leaveGame(nickname);
+                default -> {
+                    send(Message.wordError(roomName, "지원하지 않는 단어 게임 액션입니다."));
+                    return;
+                }
+            }
+            room.broadcast(game.toStateMessage(), false);
+        } catch (Exception e) {
+            send(Message.wordError(roomName, e.getMessage()));
         }
     }
 
