@@ -67,7 +67,7 @@ public class ClientHandler extends Thread {
             // 변경: 참여 중인 모든 방에서 빠져나오기
             for (ChatRoom room : joinedRooms) {
                 room.leave(this);
-                server.removeEmptyRoom(room.getName());
+                // 빈 방 자동 삭제 비활성화 - 수동 삭제만 허용
             }
             joinedRooms.clear();
 
@@ -86,6 +86,10 @@ public class ClientHandler extends Thread {
                 handleCreateRoom(msg);
                 break;
 
+            case DELETE_ROOM:
+                handleDeleteRoom(msg);
+                break;
+
             case JOIN_ROOM:
                 handleJoinRoom(msg);
                 break;
@@ -96,6 +100,10 @@ public class ClientHandler extends Thread {
 
             case IMAGE:
                 handleSendImage(msg);
+                break;
+
+            case FILE:
+                handleSendFile(msg);
                 break;
 
             case GAME_EVENT:
@@ -153,6 +161,10 @@ public class ClientHandler extends Thread {
                     game.resign(nickname);
                     room.broadcast(game.toStateMessage(), false);
                 }
+                case RESTART -> {
+                    game.restart(nickname);
+                    room.broadcast(game.toStateMessage(), false);
+                }
                 case LEAVE_GAME -> {
                     game.leaveGame(nickname);
                     room.broadcast(game.toStateMessage(), false);
@@ -201,7 +213,7 @@ public class ClientHandler extends Thread {
 
         if (joinedRooms.remove(room)) {
             room.leave(this); // 참가자 목록에서 제거 + 브로드캐스트
-            server.removeEmptyRoom(room.getName());
+            // 빈 방 자동 삭제 비활성화 - 수동 삭제만 허용
         }
     }
 
@@ -217,6 +229,21 @@ public class ClientHandler extends Thread {
 
         // 방 목록 변경 → 전체에게 갱신
         server.broadcastRoomListToAll();
+    }
+
+    private void handleDeleteRoom(Message msg) {
+        String roomName = msg.getRoom();
+        if (roomName == null || roomName.isBlank()) {
+            send(Message.error("방 이름이 비어 있습니다."));
+            return;
+        }
+
+        boolean deleted = server.deleteRoom(roomName.trim());
+        if (deleted) {
+            send(Message.system("'" + roomName + "' 방이 삭제되었습니다."));
+        } else {
+            send(Message.error("존재하지 않는 방입니다: " + roomName));
+        }
     }
 
     // 변경: JOIN 시 기존 방을 나가지 않고, 여러 방에 동시에 참여 가능하도록
@@ -292,6 +319,35 @@ public class ClientHandler extends Thread {
         }
 
         room.broadcastImage(nickname, img, true);
+    }
+
+    // 파일 전송 처리
+    private void handleSendFile(Message msg) {
+        String roomName = msg.getRoom();
+        if (roomName == null || roomName.isBlank()) {
+            send(Message.error("파일을 보낼 방 정보가 없습니다."));
+            return;
+        }
+
+        ChatRoom room = server.getRoom(roomName.trim());
+        if (room == null) {
+            send(Message.error("존재하지 않는 방입니다: " + roomName));
+            return;
+        }
+
+        if (!joinedRooms.contains(room)) {
+            send(Message.error("해당 방에 입장한 후에 파일을 보낼 수 있습니다: " + room.getName()));
+            return;
+        }
+
+        String fileName = msg.getFileName();
+        byte[] fileData = msg.getFileData();
+        if (fileName == null || fileData == null) {
+            send(Message.error("파일 정보가 올바르지 않습니다."));
+            return;
+        }
+
+        room.broadcastFile(nickname, fileName, fileData, true);
     }
 
     public void send(Message msg) {

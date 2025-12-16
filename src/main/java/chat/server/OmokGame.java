@@ -60,8 +60,9 @@ public class OmokGame {
     public synchronized void tryJoin(String nickname) {
         if (finished) reset();
 
-        // 이미 플레이어인 경우
+        // 이미 플레이어인 경우 그대로 유지
         if (nickname.equals(blackPlayer) || nickname.equals(whitePlayer)) {
+            return;
         }
 
         // 빈 슬롯이 있으면 플레이어로
@@ -71,13 +72,14 @@ public class OmokGame {
             if (whitePlayer != null && currentTurn == null) {
                 currentTurn = blackPlayer;
             }
-        }
-        if (whitePlayer == null) {
+            return;
+        } else if (whitePlayer == null) {
             whitePlayer = nickname;
             spectators.remove(nickname);
             if (blackPlayer != null && currentTurn == null) {
                 currentTurn = blackPlayer;
             }
+            return;
         }
 
         // 슬롯이 다 찼으면 관전자로 (자동 관전)
@@ -94,6 +96,23 @@ public class OmokGame {
         winner = nickname.equals(blackPlayer) ? whitePlayer : blackPlayer;
         //승리이유 기권
         resultReason = "RESIGN";
+    }
+
+    // 게임 다시하기 - 플레이어 유지, 보드 초기화
+    public synchronized void restart(String nickname) {
+        // 플레이어만 다시하기 가능
+        if (!nickname.equals(blackPlayer) && !nickname.equals(whitePlayer)) {
+            throw new IllegalStateException("플레이어만 다시하기를 요청할 수 있습니다.");
+        }
+        // 게임이 종료된 상태에서만 다시하기 가능
+        if (!finished) {
+            throw new IllegalStateException("게임이 진행 중입니다.");
+        }
+        clearBoard();
+        finished = false;
+        winner = null;
+        resultReason = null;
+        currentTurn = blackPlayer; // 흑 선
     }
 
     // 게임만 나가기 (방 유지) - 나간 사용자만 제거

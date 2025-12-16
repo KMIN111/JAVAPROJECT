@@ -21,6 +21,7 @@ public class OmokWindow extends JFrame {
     private final OmokBoardPanel boardPanel;
     private final JLabel infoLabel;
     private final JButton resignButton;
+    private final JButton restartButton;
     private final JButton exitButton;
     private final JLabel blackLabel;
     private final JLabel whiteLabel;
@@ -48,6 +49,7 @@ public class OmokWindow extends JFrame {
         boardPanel = new OmokBoardPanel(this::onCellClicked);
         infoLabel = new JLabel("대기 중", SwingConstants.CENTER);
         resignButton = new JButton("기권");
+        restartButton = new JButton("다시하기");
         exitButton = new JButton("게임 나가기");
         blackLabel = new JLabel("흑: -");
         whiteLabel = new JLabel("백: -");
@@ -64,10 +66,21 @@ public class OmokWindow extends JFrame {
             }
         });
 
+        restartButton.addActionListener(e -> {
+            if (finished && myStone != 0) {
+                try {
+                    client.send(Message.gameRestart(roomName));
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(this, "다시하기 전송 실패: " + ex.getMessage());
+                }
+            }
+        });
+
         JPanel bottom = new JPanel(new BorderLayout(8, 0));
         bottom.add(infoLabel, BorderLayout.CENTER);
-        JPanel bottomButtons = new JPanel(new GridLayout(1, 2, 5, 0));
+        JPanel bottomButtons = new JPanel(new GridLayout(1, 3, 5, 0));
         bottomButtons.add(resignButton);
+        bottomButtons.add(restartButton);
         bottomButtons.add(exitButton);
         bottom.add(bottomButtons, BorderLayout.EAST);
 
@@ -82,6 +95,7 @@ public class OmokWindow extends JFrame {
         });
 
         JPanel side = new JPanel(new BorderLayout(8, 8));
+        side.setPreferredSize(new Dimension(150, 0)); // 사이드 패널 너비 고정
         JPanel playersPanel = new JPanel(new GridLayout(2, 1));
         playersPanel.add(blackLabel);
         playersPanel.add(whiteLabel);
@@ -100,6 +114,10 @@ public class OmokWindow extends JFrame {
         int minWidth = boardPanel.getPreferredSize().width + 180;
         int minHeight = boardPanel.getPreferredSize().height + 120;
         setMinimumSize(new Dimension(minWidth, minHeight));
+
+        // 초기 버튼 상태 설정
+        resignButton.setEnabled(false);
+        restartButton.setEnabled(false);
     }
 
     private void onCellClicked(int x, int y) {
@@ -171,6 +189,10 @@ public class OmokWindow extends JFrame {
         infoLabel.setText(sb.toString());
         boardPanel.setEnabled(!finished);
         boardPanel.repaint();
+
+        // 버튼 상태 업데이트
+        resignButton.setEnabled(!finished && myStone != 0);
+        restartButton.setEnabled(finished && myStone != 0);
 
         maybeNotifyResult(m);
     }

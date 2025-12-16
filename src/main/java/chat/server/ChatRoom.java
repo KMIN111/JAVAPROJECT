@@ -101,6 +101,11 @@ public class ChatRoom {
         broadcast(msg, saveHistory);
     }
 
+    public void broadcastFile(String sender, String fileName, byte[] fileData, boolean saveHistory) {
+        Message msg = Message.sendFile(roomName, sender, fileName, fileData);
+        broadcast(msg, saveHistory);
+    }
+
     // 기존 코드 호환용
     public void broadcast(Message msg) {
         broadcast(msg, false);

@@ -72,10 +72,14 @@ public class RoomListFrame extends JFrame {
         JButton createBtn = new JButton("방 만들기");
         createBtn.addActionListener(e -> createRoom());
 
+        JButton deleteBtn = new JButton("방 삭제");
+        deleteBtn.addActionListener(e -> deleteSelectedRoom());
+
         JButton joinBtn = new JButton("입장하기");
         joinBtn.addActionListener(e -> joinSelectedRoom());
 
         bottom.add(createBtn);
+        bottom.add(deleteBtn);
         bottom.add(joinBtn);
 
         main.add(bottom, BorderLayout.SOUTH);
@@ -134,6 +138,30 @@ public class RoomListFrame extends JFrame {
         }
     }
 
+    private void deleteSelectedRoom() {
+        String selected = roomList.getSelectedValue();
+        if (selected == null) {
+            JOptionPane.showMessageDialog(this,
+                    "삭제할 방을 선택해주세요.",
+                    "안내", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(this,
+                "'" + selected + "' 방을 삭제하시겠습니까?\n방에 있는 모든 사용자가 퇴장됩니다.",
+                "방 삭제 확인", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+
+        if (confirm != JOptionPane.YES_OPTION) return;
+
+        try {
+            client.send(Message.deleteRoom(selected));
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this,
+                    "방 삭제 실패: " + e.getMessage(),
+                    "오류", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
     private void joinSelectedRoom() {
         String selected = roomList.getSelectedValue();
         if (selected == null) {
@@ -144,13 +172,11 @@ public class RoomListFrame extends JFrame {
         }
 
         try {
-            ChatFrame chat = new ChatFrame(client, selected, this);
+            // 채팅방 목록은 유지하고 새 채팅방 창 열기
+            ChatFrame chat = new ChatFrame(client, selected, null);
             chat.setVisible(true);
-            // 방 목록 숨기기
-            this.setVisible(false);
 
             client.send(Message.joinRoom(selected));
-
 
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this,

@@ -50,6 +50,21 @@ public class ChatServer {
         }
     }
 
+    // 방 강제 삭제 (참여자가 있어도 삭제)
+    public boolean deleteRoom(String roomName) {
+        ChatRoom room = rooms.get(roomName);
+        if (room == null) {
+            return false;
+        }
+
+        // 방에 있는 모든 참여자에게 방 삭제 알림
+        room.broadcast(Message.system("채팅방이 삭제되었습니다."), true);
+
+        rooms.remove(roomName);
+        System.out.println("[Server] 방 삭제: " + roomName);
+        broadcastRoomListToAll();
+        return true;
+    }
 
     public void broadcastRoomListToAll() {
         List<String> names = List.copyOf(rooms.keySet());

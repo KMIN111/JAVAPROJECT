@@ -12,12 +12,14 @@ public class Message implements Serializable {
         ROOM_LIST,   // 서버 → 클라이언트 (방 목록 전체)
         CREATE_ROOM, // 클라이언트 → 서버 (방 만들기 요청)
         JOIN_ROOM,   // 클라이언트 → 서버 (방 입장 요청)
+        DELETE_ROOM, // 클라이언트 → 서버 (방 삭제 요청)
         CHAT,        // 양방향 (채팅 메시지)
         SYSTEM,      // 서버 → 클라이언트 (공지, 안내 등)
         ERROR,       // 서버 → 클라이언트 (에러 안내)
         GAME_EVENT,  // 미니게임(오목) 이벤트
         USER_LIST,   // 방 참가자 목록
         IMAGE,       // 이미지 전달
+        FILE,        // 파일 전달 (텍스트, PDF, 압축파일 등)
         LEAVE_ROOM   // 클라이언트 ->  서버?
     }
 
@@ -28,6 +30,7 @@ public class Message implements Serializable {
         MOVE, // 게임 이동
         RESULT, // 게임 결과
         RESIGN, // 게임 기권
+        RESTART, // 게임 다시하기
         SUBMIT_WORD, // 게임 단어 제출
         START_WORD_ROUND, // 게임 라운드 시작
         LEAVE_GAME, // 게임만 나가기 (방 유지)
@@ -46,6 +49,11 @@ public class Message implements Serializable {
     private List<String> rooms; // ROOM_LIST 용
     private List<String> users; //USER_LIST용
     private ImageIcon image;   // 이미지 전달
+
+    // 파일 전송 관련 필드
+    private String fileName;   // 파일 이름
+    private byte[] fileData;   // 파일 데이터
+    private long fileSize;     // 파일 크기
 
     // 오목 게임 관련필드드
     private GameAction gameAction; // 게임 액션
@@ -86,6 +94,13 @@ public class Message implements Serializable {
     // 방 생성 생성자
     public static Message createRoom(String roomName) {
         Message m = new Message(Type.CREATE_ROOM);
+        m.room = roomName;
+        return m;
+    }
+
+    // 방 삭제 생성자
+    public static Message deleteRoom(String roomName) {
+        Message m = new Message(Type.DELETE_ROOM);
         m.room = roomName;
         return m;
     }
@@ -159,6 +174,17 @@ public class Message implements Serializable {
         return m;
     }
 
+    // 파일 전달 생성자
+    public static Message sendFile(String room, String sender, String fileName, byte[] fileData) {
+        Message m = new Message(Type.FILE);
+        m.room = room;
+        m.sender = sender;
+        m.fileName = fileName;
+        m.fileData = fileData;
+        m.fileSize = fileData != null ? fileData.length : 0;
+        return m;
+    }
+
     // 오목 게임 생성자
     public static Message gameJoin(String room, GameType gameType) {
         Message m = new Message(Type.GAME_EVENT);
@@ -194,6 +220,15 @@ public class Message implements Serializable {
         m.room = room;
         m.gameType = GameType.OMOK;
         m.gameAction = GameAction.RESIGN;
+        return m;
+    }
+
+    // 오목 게임 다시하기 생성자
+    public static Message gameRestart(String room) {
+        Message m = new Message(Type.GAME_EVENT);
+        m.room = room;
+        m.gameType = GameType.OMOK;
+        m.gameAction = GameAction.RESTART;
         return m;
     }
 
@@ -314,6 +349,11 @@ public class Message implements Serializable {
     public List<String> getRooms() { return rooms; }
     public List<String> getUsers() { return users; }
     public ImageIcon getImage() { return image; }
+
+    // 파일 전송 getter
+    public String getFileName() { return fileName; }
+    public byte[] getFileData() { return fileData; }
+    public long getFileSize() { return fileSize; }
 
     // 오목 게임 getter
     public GameAction getGameAction() { return gameAction; }
