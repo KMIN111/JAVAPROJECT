@@ -7,7 +7,7 @@ import java.net.Socket;
 public class ChatServerMain {
 
     public static void main(String[] args) {
-        int port = 6000;
+        int port = 5959;
         if (args.length > 0) {
             try {
                 port = Integer.parseInt(args[0]);

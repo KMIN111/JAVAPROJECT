@@ -5,6 +5,11 @@ import javax.swing.event.DocumentListener;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 
 public class LoginPage extends JFrame {
 
@@ -48,6 +53,10 @@ public class LoginPage extends JFrame {
 
     // 로그인 카드 UI 구성
     private JPanel createCard() {
+        String[] config = readServerConfig();
+        String host = config[0];
+        String port = config[1];
+
         JPanel card = new RoundedPanel(24);
         card.setBackground(CARD_BG);
         card.setLayout(new GridBagLayout());
@@ -83,13 +92,14 @@ public class LoginPage extends JFrame {
 
         gbc.gridy++;
         tfHost = createTextField();
-        tfHost.setText("localhost"); // 기본값 예시
+        tfHost.setText(host); // 기본값 예시
         card.add(createInputGroup("서버 주소", tfHost), gbc);
 
         gbc.gridy++;
         tfPort = createTextField();
-        tfPort.setText("6000"); // 기본값 예시
+        tfPort.setText(port); // 기본값 예시
         card.add(createInputGroup("포트", tfPort), gbc);
+
 
         // 로그인 버튼
         gbc.gridy++;
@@ -342,5 +352,39 @@ public class LoginPage extends JFrame {
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(LoginPage::new);
+    }
+
+    private static String[] readServerConfig() {
+        String host = "localhost"; // 기본값
+        int port = 6000;         // 기본값
+
+        try (
+                InputStream is = LoginPage.class.getClassLoader().getResourceAsStream("server.txt");
+        ) {
+            if (is == null) {
+                System.err.println("경고: server.txt 를 클래스패스에서 찾을 수 없습니다. 기본값 (localhost:6000)을 사용합니다.");
+                return new String[]{host, String.valueOf(port)};
+            }
+
+            try (BufferedReader br = new BufferedReader(
+                    new InputStreamReader(is, StandardCharsets.UTF_8))) {
+
+                String line1 = br.readLine();   // 첫 번째 줄: IP
+                String line2 = br.readLine();   // 두 번째 줄: 포트
+
+                if (line1 == null || line2 == null) {
+                    System.err.println("경고: server.txt 형식이 잘못되었습니다. (두 줄 필요). 기본값 (localhost:6000)을 사용합니다.");
+                } else {
+                    host = line1.trim();
+                    port = Integer.parseInt(line2.trim());
+                }
+            }
+
+        } catch (IOException e) {
+            System.err.println("경고: server.txt 를 읽는 중 IO 오류가 발생했습니다. 기본값 (localhost:6000)을 사용합니다." + e.getMessage());
+        } catch (NumberFormatException e) {
+            System.err.println("경고: server.txt 두 번째 줄(포트 번호)이 숫자가 아닙니다. 기본값 (localhost:6000)을 사용합니다." + e.getMessage());
+        }
+        return new String[]{host, String.valueOf(port)};
     }
 }
